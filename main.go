@@ -226,7 +226,7 @@ func (m *model) updateColorList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor < len(m.projects[m.selectedProject].colors)-1 {
 			m.cursor++
 		}
-	case "c":
+	case "enter":
 		if len(m.projects[m.selectedProject].colors) > 0 {
 			color := m.projects[m.selectedProject].colors[m.cursor]
 			clipboard.WriteAll(color)
@@ -351,7 +351,7 @@ func (m *model) viewColorList() string {
 		}
 	}
 
-	help := "\n↑/↓: Navigate\n" + "c: Copy color\n" + "n: New color\n" + "Esc: Back\n" + "q: Quit"
+	help := "\n↑/↓: Navigate\n" + "Enter: Copy color\n" + "n: New color\n" + "Esc: Back\n" + "q: Quit"
 	b.WriteString(helpStyle.Render(help))
 
 	if m.message != "" {
