@@ -82,6 +82,7 @@ const (
 	UrlListView
 	AddUrlView
 	ProjectMenuView
+	ConfirmDeleteProjectView
 )
 
 // --- LIST ITEM (Project) ---
@@ -278,6 +279,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateAddColor(msg)
 		case AddUrlView:
 			return m.updateAddUrl(msg)
+		case ConfirmDeleteProjectView:
+			return m.updateConfirmDeleteProject(msg)
 		}
 	}
 	return m, nil
@@ -303,6 +306,18 @@ func (m *model) updateProjectList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "n":
 		m.currentView = AddProjectView
 		m.inputBuffer = ""
+		return m, nil
+	case "d":
+		selectedItem, ok := m.projectList.SelectedItem().(projectItem)
+		if ok {
+			for i, p := range m.projects {
+				if p.Name == selectedItem.name {
+					m.selectedProject = i
+					m.currentView = ConfirmDeleteProjectView
+					break
+				}
+			}
+		}
 		return m, nil
 	}
 	var cmd tea.Cmd
@@ -350,13 +365,25 @@ func (m *model) updateColorList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor++
 		}
 	case "enter":
-		if len(m.projects[m.selectedProject].Colors) > 0 {
+				if len(m.projects[m.selectedProject].Colors) > 0 {
 			color := m.projects[m.selectedProject].Colors[m.cursor]
 			err := clipboard.WriteAll(color)
 			if err != nil {
 				m.message = fmt.Sprintf("Error copying to clipboard: %v", err)
 			} else {
-				m.message = fmt.Sprintf(" Copied %s", color)
+				m.message = fmt.Sprintf(" Copied %s to clipboard! ", color)
+			}
+		}
+	case "d":
+		if len(m.projects[m.selectedProject].Colors) > 0 {
+			deletedColor := m.projects[m.selectedProject].Colors[m.cursor]
+			m.projects[m.selectedProject].Colors = append(m.projects[m.selectedProject].Colors[:m.cursor], m.projects[m.selectedProject].Colors[m.cursor+1:]...)
+			m.updateProjectListItems()
+			m.saveProjects()
+			m.message = fmt.Sprintf("Deleted color %s", deletedColor)
+
+			if m.cursor > 0 && m.cursor >= len(m.projects[m.selectedProject].Colors) {
+				m.cursor--
 			}
 		}
 	case "n":
@@ -388,6 +415,18 @@ func (m *model) updateUrlList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.message = fmt.Sprintf("Error copying to clipboard: %v", err)
 			} else {
 				m.message = fmt.Sprintf(" Copied %s to clipboard! ", url)
+			}
+		}
+	case "d":
+		if len(m.projects[m.selectedProject].Urls) > 0 {
+			deletedUrl := m.projects[m.selectedProject].Urls[m.cursor].Name
+			m.projects[m.selectedProject].Urls = append(m.projects[m.selectedProject].Urls[:m.cursor], m.projects[m.selectedProject].Urls[m.cursor+1:]...)
+			m.updateProjectListItems()
+			m.saveProjects()
+			m.message = fmt.Sprintf("Deleted URL '%s'", deletedUrl)
+
+			if m.cursor > 0 && m.cursor >= len(m.projects[m.selectedProject].Urls) {
+				m.cursor--
 			}
 		}
 	case "n":
@@ -529,6 +568,8 @@ func (m *model) View() string {
 		view = m.viewAddColor()
 	case AddUrlView:
 		view = m.viewAddUrl()
+	case ConfirmDeleteProjectView:
+		view = m.viewConfirmDeleteProject()
 	}
 	return docStyle.Render(view)
 }
@@ -536,7 +577,7 @@ func (m *model) View() string {
 func (m *model) viewProjectList() string {
 	var b strings.Builder
 	b.WriteString(m.projectList.View())
-	help := horizontalHelp("↑/↓ navigate", "n new item", "q quit", "? more")
+	help := horizontalHelp("↑/↓ navigate", "n new", "d delete", "q quit")
 	b.WriteString("\n" + help)
 
 	if m.message != "" {
@@ -544,6 +585,36 @@ func (m *model) viewProjectList() string {
 	}
 	return b.String()
 }
+
+func (m *model) viewConfirmDeleteProject() string {
+	projectName := ""
+	if m.selectedProject >= 0 && m.selectedProject < len(m.projects) {
+		projectName = m.projects[m.selectedProject].Name
+	}
+	var b strings.Builder
+	b.WriteString(headerStyle.Render(fmt.Sprintf("Delete '%s'?", projectName)) + "\n\n")
+	b.WriteString("Are you sure? This action cannot be undone.\n\n")
+	b.WriteString(horizontalHelp("y yes", "n no", "esc cancel"))
+	return b.String()
+}
+
+func (m *model) updateConfirmDeleteProject(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y":
+		if m.selectedProject >= 0 && m.selectedProject < len(m.projects) {
+			deletedProjectName := m.projects[m.selectedProject].Name
+			m.projects = append(m.projects[:m.selectedProject], m.projects[m.selectedProject+1:]...)
+			m.updateProjectListItems()
+			m.saveProjects()
+			m.message = fmt.Sprintf("Deleted project '%s'", deletedProjectName)
+		}
+		m.currentView = ProjectListView
+	case "n", "esc":
+		m.currentView = ProjectListView
+	}
+	return m, nil
+}
+
 
 func (m *model) viewProjectMenu() string {  
     project := m.projects[m.selectedProject]  
@@ -598,7 +669,7 @@ func (m *model) viewColorList() string {
 		}
 	}
 
-	help := horizontalHelp("↑/↓ navigate", "enter copy", "n new color", "esc back", "q quit")
+	help := horizontalHelp("↑/↓ navigate", "enter copy", "n new", "d delete", "esc back", "q quit")
 	b.WriteString("\n" + help)
 
 	if m.message != "" {
@@ -626,7 +697,7 @@ func (m *model) viewUrlList() string {
 		}
 	}
 
-	help := horizontalHelp("↑/↓ navigate", "enter copy", "n new URL", "esc back", "q quit")
+	help := horizontalHelp("↑/↓ navigate", "enter copy", "n new", "d delete", "esc back", "q quit")
 	b.WriteString("\n" + help)
 
 	if m.message != "" {
