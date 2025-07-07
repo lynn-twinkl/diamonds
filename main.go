@@ -132,12 +132,12 @@ type model struct {
 // --- STYLING PARAMETERS ---
 var (
 	// Pipe: Adaptive purple for app name/header
-	appNameColor = lipgloss.AdaptiveColor{Light: "#FF00FF", Dark: "#F6FFFE"}
+	appNameColor = lipgloss.AdaptiveColor{Light: "#1E90FF", Dark: "#F6FFFE"}
 	// Comment: Gray text for secondary info
 	commentColor = lipgloss.Color("#757575")
 	// Flag: Adaptive color for selected items
 	selectionColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#BAF3EB"}
-	itemDescColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#E9F8F5"}
+	itemDescColor = lipgloss.AdaptiveColor{Light: "#5151D8", Dark: "#E9F8F5"}
 	// ErrorHeader: Used for status messages
 	messageColor   = lipgloss.Color("#F1F1F1")
 	messageBgColor = lipgloss.Color("#FF5F87")
@@ -558,7 +558,7 @@ func (m *model) viewColorList() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.Name)) + "\n")
+	b.WriteString(headerStyle.Render(fmt.Sprintf("%s", project.Name)) + "\n")
 
 	if len(project.Colors) == 0 {
 		b.WriteString(subtleStyle.Render("No colors yet. Press 'n' to add one.") + "\n")
@@ -601,7 +601,7 @@ func (m *model) viewUrlList() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.Name)) + "\n")
+	b.WriteString(headerStyle.Render(fmt.Sprintf("%s", project.Name)) + "\n")
 
 	if len(project.Urls) == 0 {
 		b.WriteString(subtleStyle.Render("No URLs yet. Press 'n' to add one.") + "\n")
