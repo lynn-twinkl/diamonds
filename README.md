@@ -9,5 +9,8 @@ And so was Diamonds born! A little gift to my girlfriend and, hopefully, a succe
 
 ## Installation
 
-`brew install diamonds`
+```
+brew tap lynn-twinkl/diamonds
+brew install diamonds
+```
 
