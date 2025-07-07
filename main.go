@@ -19,27 +19,42 @@ const (
 	ColorListView
 	AddProjectView
 	AddColorView
+	UrlListView
+	AddUrlView
+	ProjectMenuView
 )
 
 // --- LIST ITEM (Project) ---
 type projectItem struct {
 	name       string
 	colorCount int
+	urlCount   int
 }
 
 func (p projectItem) FilterValue() string { return p.name }
 func (p projectItem) Title() string       { return p.name }
 func (p projectItem) Description() string {
+	colorStr := "colors"
 	if p.colorCount == 1 {
-		return "1 color"
+		colorStr = "color"
 	}
-	return fmt.Sprintf("%d colors", p.colorCount)
+	urlStr := "URLs"
+	if p.urlCount == 1 {
+		urlStr = "URL"
+	}
+	return fmt.Sprintf("%d %s, %d %s", p.colorCount, colorStr, p.urlCount, urlStr)
 }
 
 // --- MODEL ---
+type namedURL struct {
+	Name string
+	URL  string
+}
+
 type Project struct {
 	name   string
 	colors []string
+	urls   []namedURL
 }
 
 type model struct {
@@ -48,7 +63,9 @@ type model struct {
 	currentView     ViewState
 	cursor          int
 	selectedProject int
-	inputBuffer     string
+	inputBuffer     string // Used for single-line inputs
+	urlNameBuffer   string // Used for the URL name in AddUrlView
+	focusedField    int    // Used in AddUrlView to track focus
 	message         string
 }
 
@@ -111,30 +128,35 @@ var (
 			Width(40)
 )
 
-func newCustomDelegate() list.DefaultDelegate {  
-	// Create a new default delegate  
-	d := list.NewDefaultDelegate()  
-  
-	// Change colors (using your selection color)  
-	c := selectionColor  
-	d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(c).BorderLeftForeground(c)  
-	d.Styles.SelectedDesc = d.Styles.SelectedTitle.Copy() // reuse the title style here  
-  
-	return d  
+func newCustomDelegate() list.DefaultDelegate {
+	// Create a new default delegate
+	d := list.NewDefaultDelegate()
+
+	// Change colors (using your selection color)
+	c := selectionColor
+	d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(c).BorderLeftForeground(c)
+	d.Styles.SelectedDesc = d.Styles.SelectedTitle.Copy() // reuse the title style here
+
+	return d
 }
 
 // --- INITIALIZATION & UPDATE LOGIC ---
 
 func initialModel() model {
 	initialProjects := []Project{
-		{name: "Website Redesign", colors: []string{"#FF5733", "#33FF57", "#3357FF"}},
-		{name: "Mobile App UI", colors: []string{"#C70039", "#900C3F"}},
-		{name: "Branding Guide", colors: []string{"#F9E79F", "#5DADE2", "#1ABC9C", "#F1C40F"}},
+		{name: "Website Redesign", colors: []string{"#FF5733", "#33FF57", "#3357FF"}, urls: []namedURL{
+			{Name: "Figma Mockups", URL: "https://www.figma.com/file/123"},
+			{Name: "Design Specs", URL: "https://www.notion.so/design-specs"},
+		}},
+		{name: "Mobile App UI", colors: []string{"#C70039", "#900C3F"}, urls: []namedURL{
+			{Name: "Figma Mockups", URL: "https://www.figma.com/file/456"},
+		}},
+		{name: "Branding Guide", colors: []string{"#F9E79F", "#5DADE2", "#1ABC9C", "#F1C40F"}, urls: []namedURL{}},
 	}
 
 	items := make([]list.Item, len(initialProjects))
 	for i, project := range initialProjects {
-		items[i] = projectItem{name: project.name, colorCount: len(project.colors)}
+		items[i] = projectItem{name: project.name, colorCount: len(project.colors), urlCount: len(project.urls)}
 	}
 
 	delegate := newCustomDelegate()
@@ -155,7 +177,7 @@ func initialModel() model {
 func (m *model) updateProjectListItems() {
 	items := make([]list.Item, len(m.projects))
 	for i, project := range m.projects {
-		items[i] = projectItem{name: project.name, colorCount: len(project.colors)}
+		items[i] = projectItem{name: project.name, colorCount: len(project.colors), urlCount: len(project.urls)}
 	}
 	m.projectList.SetItems(items)
 }
@@ -174,12 +196,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.currentView {
 		case ProjectListView:
 			return m.updateProjectList(msg)
+		case ProjectMenuView:
+			return m.updateProjectMenu(msg)
 		case ColorListView:
 			return m.updateColorList(msg)
+		case UrlListView:
+			return m.updateUrlList(msg)
 		case AddProjectView:
 			return m.updateAddProject(msg)
 		case AddColorView:
 			return m.updateAddColor(msg)
+		case AddUrlView:
+			return m.updateAddUrl(msg)
 		}
 	}
 	return m, nil
@@ -195,7 +223,7 @@ func (m *model) updateProjectList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			for i, p := range m.projects {
 				if p.name == selectedItem.name {
 					m.selectedProject = i
-					m.currentView = ColorListView
+					m.currentView = ProjectMenuView
 					m.cursor = 0
 					break
 				}
@@ -212,12 +240,37 @@ func (m *model) updateProjectList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *model) updateColorList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateProjectMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "esc":
 		m.currentView = ProjectListView
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case "down", "j":
+		if m.cursor < 1 {
+			m.cursor++
+		}
+	case "enter":
+		if m.cursor == 0 {
+			m.currentView = ColorListView
+		} else {
+			m.currentView = UrlListView
+		}
+		m.cursor = 0
+	}
+	return m, nil
+}
+
+func (m *model) updateColorList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		m.currentView = ProjectMenuView
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
@@ -239,6 +292,35 @@ func (m *model) updateColorList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *model) updateUrlList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		m.currentView = ProjectMenuView
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case "down", "j":
+		if m.cursor < len(m.projects[m.selectedProject].urls)-1 {
+			m.cursor++
+		}
+	case "enter":
+		if len(m.projects[m.selectedProject].urls) > 0 {
+			url := m.projects[m.selectedProject].urls[m.cursor].URL
+			clipboard.WriteAll(url)
+			m.message = fmt.Sprintf(" Copied %s to clipboard! ", url)
+		}
+	case "n":
+		m.currentView = AddUrlView
+		m.inputBuffer = ""
+		m.urlNameBuffer = ""
+		m.focusedField = 0
+	}
+	return m, nil
+}
+
 func (m *model) updateAddProject(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -248,7 +330,7 @@ func (m *model) updateAddProject(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.inputBuffer = ""
 	case "enter":
 		if m.inputBuffer != "" {
-			m.projects = append(m.projects, Project{name: m.inputBuffer, colors: []string{}})
+			m.projects = append(m.projects, Project{name: m.inputBuffer, colors: []string{}, urls: []namedURL{}})
 			m.updateProjectListItems()
 			m.currentView = ProjectListView
 			m.inputBuffer = ""
@@ -292,18 +374,71 @@ func (m *model) updateAddColor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *model) updateAddUrl(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "esc":
+		m.currentView = UrlListView
+		m.urlNameBuffer = ""
+		m.inputBuffer = ""
+		m.focusedField = 0
+	case "enter":
+		if m.focusedField == 0 {
+			m.focusedField = 1
+		} else {
+			if m.urlNameBuffer != "" && m.inputBuffer != "" {
+				m.projects[m.selectedProject].urls = append(m.projects[m.selectedProject].urls, namedURL{Name: m.urlNameBuffer, URL: m.inputBuffer})
+				m.updateProjectListItems()
+				m.currentView = UrlListView
+				m.cursor = len(m.projects[m.selectedProject].urls) - 1
+				m.urlNameBuffer = ""
+				m.inputBuffer = ""
+				m.focusedField = 0
+			}
+		}
+	case "backspace":
+		if m.focusedField == 0 {
+			if len(m.urlNameBuffer) > 0 {
+				m.urlNameBuffer = m.urlNameBuffer[:len(m.urlNameBuffer)-1]
+			}
+		} else {
+			if len(m.inputBuffer) > 0 {
+				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+			}
+		}
+	case "tab":
+		m.focusedField = (m.focusedField + 1) % 2
+	default:
+		if msg.Type == tea.KeyRunes {
+			if m.focusedField == 0 {
+				m.urlNameBuffer += string(msg.Runes)
+			} else {
+				m.inputBuffer += string(msg.Runes)
+			}
+		}
+	}
+	return m, nil
+}
+
 // --- VIEWS ---
 
 func (m *model) View() string {
 	switch m.currentView {
 	case ProjectListView:
 		return m.viewProjectList()
+	case ProjectMenuView:
+		return m.viewProjectMenu()
 	case ColorListView:
 		return m.viewColorList()
+	case UrlListView:
+		return m.viewUrlList()
 	case AddProjectView:
 		return m.viewAddProject()
 	case AddColorView:
 		return m.viewAddColor()
+	case AddUrlView:
+		return m.viewAddUrl()
 	}
 	return ""
 }
@@ -316,6 +451,27 @@ func (m *model) viewProjectList() string {
 		b.WriteString("\n" + messageStyle.Render(m.message))
 		m.message = ""
 	}
+	return b.String()
+}
+
+func (m *model) viewProjectMenu() string {
+	project := m.projects[m.selectedProject]
+	var b strings.Builder
+
+	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.name)) + "\n")
+
+	options := []string{"Colors", "URLs"}
+	for i, option := range options {
+		if m.cursor == i {
+			b.WriteString(selectedItemStyle.Render("> " + option) + "\n")
+		} else {
+			b.WriteString("  " + option + "\n")
+		}
+	}
+
+	help := "\n↑/↓: Navigate\n" + "Enter: Select\n" + "Esc: Back\n" + "q: Quit"
+	b.WriteString(helpStyle.Render(help))
+
 	return b.String()
 }
 
@@ -362,6 +518,35 @@ func (m *model) viewColorList() string {
 	return b.String()
 }
 
+func (m *model) viewUrlList() string {
+	project := m.projects[m.selectedProject]
+	var b strings.Builder
+
+	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.name)) + "\n")
+
+	if len(project.urls) == 0 {
+		b.WriteString(subtleStyle.Render("No URLs yet. Press 'n' to add one.") + "\n")
+	} else {
+		for i, namedUrl := range project.urls {
+			if m.cursor == i {
+				b.WriteString(selectedItemStyle.Render("> " + namedUrl.Name) + "\n")
+			} else {
+				b.WriteString("  " + namedUrl.Name + "\n")
+			}
+		}
+	}
+
+	help := "\n↑/↓: Navigate\n" + "Enter: Copy URL\n" + "n: New URL\n" + "Esc: Back\n" + "q: Quit"
+	b.WriteString(helpStyle.Render(help))
+
+	if m.message != "" {
+		b.WriteString("\n" + messageStyle.Render(m.message))
+		m.message = ""
+	}
+
+	return b.String()
+}
+
 func (m *model) viewAddProject() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Add New Project") + "\n")
@@ -377,6 +562,25 @@ func (m *model) viewAddColor() string {
 	prompt := fmt.Sprintf("HEX color: %s", m.inputBuffer)
 	b.WriteString(inputStyle.Render(prompt) + "\n\n")
 	b.WriteString(helpStyle.Render("Enter HEX (e.g., #FF5F87)\nEnter: Save\nEsc: Cancel"))
+	return b.String()
+}
+
+func (m *model) viewAddUrl() string {
+	var b strings.Builder
+	b.WriteString(headerStyle.Render("Add New URL") + "\n")
+
+	namePrompt := fmt.Sprintf("Name: %s", m.urlNameBuffer)
+	urlPrompt := fmt.Sprintf("URL: %s", m.inputBuffer)
+
+	if m.focusedField == 0 {
+		b.WriteString(inputStyle.Render(namePrompt) + "\n")
+		b.WriteString(subtleStyle.Render(urlPrompt) + "\n\n")
+	} else {
+		b.WriteString(subtleStyle.Render(namePrompt) + "\n")
+		b.WriteString(inputStyle.Render(urlPrompt) + "\n\n")
+	}
+
+	b.WriteString(helpStyle.Render("Enter: Next/Save\nTab: Switch Fields\nEsc: Cancel"))
 	return b.String()
 }
 
