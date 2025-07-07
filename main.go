@@ -133,19 +133,19 @@ type model struct {
 var (
 	// Colors mapped from the style guide
 	// Pipe: Adaptive purple for app name/header
-	appNameColor = lipgloss.AdaptiveColor{Light: "#8470FF", Dark: "#745CFF"}
+	appNameColor = lipgloss.AdaptiveColor{Light: "#FF00FF", Dark: "#745CFF"}
 	// Comment: Gray text for secondary info
 	commentColor = lipgloss.Color("#757575")
 	// Flag: Adaptive green/cyan for selected items
-	selectionColor = lipgloss.AdaptiveColor{Light: "#F780E2", Dark: "#F780E2"}
+	selectionColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#F780E2"}
 	// ErrorHeader: Used for status messages
 	messageColor   = lipgloss.Color("#F1F1F1")
 	messageBgColor = lipgloss.Color("#FF5F87")
 	// InlineCode: Pink on a dark/light background
 	inlineCodeColor   = lipgloss.Color("#FF5F87")
-	inlineCodeBgColor = lipgloss.AdaptiveColor{Light: "#F2F2F2", Dark: "#3A3A3A"}
+	inlineCodeBgColor = lipgloss.AdaptiveColor{Light: "#ADD8E6", Dark: "#3A3A3A"}
 	// Quote: Adaptive pink for interactive elements
-	quoteColor = lipgloss.AdaptiveColor{Light: "#FF71D0", Dark: "#FF78D2"}
+	quoteColor = lipgloss.AdaptiveColor{Light: "#1E90FF", Dark: "#FF78D2"}
 
 	// Styles built from the color parameters
 	// AppName + Pipe
@@ -224,6 +224,7 @@ func initialModel() model {
 	l.SetFilteringEnabled(false)
 	l.Styles.Title = headerStyle
 	l.Styles.HelpStyle = helpStyle
+	l.SetShowHelp(false)
 
 	return model{
 		projectList: l,
@@ -517,6 +518,8 @@ func (m *model) View() string {
 func (m *model) viewProjectList() string {
 	var b strings.Builder
 	b.WriteString(m.projectList.View())
+	help := horizontalHelp("↑/↓ navigate", "n new item", "q quit", "? more")
+	b.WriteString("\n" + help)
 
 	if m.message != "" {
 		b.WriteString("\n" + messageStyle.Render(m.message))
@@ -540,7 +543,7 @@ func (m *model) viewProjectMenu() string {
 		}
 	}
 
-	help := horizontalHelp("↑/↓ navigate", "ENTER select", "ESC back", "q quit")
+	help := horizontalHelp("↑/↓ navigate", "enter select", "esc back", "q quit")
 	b.WriteString("\n" + help)
 
 	return b.String()
@@ -578,7 +581,7 @@ func (m *model) viewColorList() string {
 		}
 	}
 
-	help := horizontalHelp("↑/↓: Navigate", "Enter: Copy color", "n: New color", "Esc: Back", "q: Quit")
+	help := horizontalHelp("↑/↓ navigate", "enter copy", "n new color", "esc back", "q quit")
 	b.WriteString("\n" + help)
 
 	if m.message != "" {
@@ -607,7 +610,7 @@ func (m *model) viewUrlList() string {
 		}
 	}
 
-	help := horizontalHelp("↑/↓: Navigate", "Enter: Copy URL", "n: New URL", "Esc: Back", "q: Quit")
+	help := horizontalHelp("↑/↓ navigate", "enter copy", "n new URL", "esc back", "q quit")
 	b.WriteString("\n" + help)
 
 	if m.message != "" {
@@ -623,7 +626,7 @@ func (m *model) viewAddProject() string {
 	b.WriteString(headerStyle.Render("Add New Project") + "\n")
 	prompt := fmt.Sprintf("Project name: %s", m.inputBuffer)
 	b.WriteString(inputStyle.Render(prompt) + "\n\n")
-	b.WriteString(horizontalHelp("Enter: Save", "Esc: Cancel"))
+	b.WriteString(horizontalHelp("enter save", "esc cancel"))
 	return b.String()
 }
 
@@ -633,7 +636,7 @@ func (m *model) viewAddColor() string {
 	prompt := fmt.Sprintf("HEX color: %s", m.inputBuffer)
 	b.WriteString(inputStyle.Render(prompt) + "\n\n")
 	b.WriteString(helpStyle.Render("Enter HEX (e.g., #FF5F87)") + "\n")
-	b.WriteString(horizontalHelp("Enter: Save", "Esc: Cancel"))
+	b.WriteString(horizontalHelp("enter save", "esc cancel"))
 	return b.String()
 }
 
@@ -652,7 +655,7 @@ func (m *model) viewAddUrl() string {
 		b.WriteString(inputStyle.Render(urlPrompt) + "\n\n")
 	}
 
-	b.WriteString(horizontalHelp("Enter: Next/Save", "Tab: Switch Fields", "Esc: Cancel"))
+	b.WriteString(horizontalHelp("enter next/save", "tab switch fields", "esc cancel"))
 	return b.String()
 }
 
