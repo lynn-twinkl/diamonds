@@ -146,6 +146,8 @@ var (
 	inlineCodeBgColor = lipgloss.AdaptiveColor{Light: "#ADD8E6", Dark: "#3A3A3A"}
 	// Quote: Adaptive pink for interactive elements
 	quoteColor = lipgloss.AdaptiveColor{Light: "#1E90FF", Dark: "#FF78D2"}
+	// Normal: For regular text
+	normalTextColor = lipgloss.AdaptiveColor{Light: "#1F2026", Dark: "#E5E5E5"}
 
 	// Styles built from the color parameters
 	// AppName + Pipe
@@ -177,8 +179,7 @@ var (
 
 	// Flag
 	selectedItemStyle = lipgloss.NewStyle().
-				Foreground(selectionColor).
-				Bold(true)
+				Foreground(selectionColor)
 
 	// Quote
 	inputStyle = lipgloss.NewStyle().
@@ -188,7 +189,7 @@ var (
 			Width(40)
 
 	// Doc: General styling for the whole app
-	docStyle = lipgloss.NewStyle().Padding(1, 1)
+	docStyle = lipgloss.NewStyle().Padding(1, 1).Foreground(normalTextColor)
 )
 
 func newCustomDelegate() list.DefaultDelegate {
@@ -199,6 +200,10 @@ func newCustomDelegate() list.DefaultDelegate {
 	c := selectionColor
 	d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(c).BorderLeftForeground(c)
 	d.Styles.SelectedDesc = d.Styles.SelectedTitle.Copy() // reuse the title style here
+
+	// Set color for normal (unselected) items
+	d.Styles.NormalTitle = d.Styles.NormalTitle.Foreground(normalTextColor)
+	d.Styles.NormalDesc = d.Styles.NormalDesc.Foreground(commentColor)
 
 	return d
 }
