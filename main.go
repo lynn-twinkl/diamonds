@@ -227,7 +227,7 @@ func initialModel() model {
 	l.Title = "🪩 DIAMONDS "
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.Styles.Title = headerStyle.Copy().MarginTop(0).PaddingTop(1)
+	l.Styles.Title = headerStyle.MarginTop(0).PaddingTop(1)
 	l.Styles.HelpStyle = helpStyle
 	l.SetShowHelp(false)
 
@@ -251,6 +251,11 @@ func (m *model) Init() tea.Cmd {
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Clear the message on any key press
+	if _, ok := msg.(tea.KeyMsg); ok {
+		m.message = ""
+	}
+
 	if msg, ok := msg.(tea.WindowSizeMsg); ok {
 		h, v := docStyle.GetHorizontalPadding(), docStyle.GetVerticalPadding()
 		m.projectList.SetSize(msg.Width-h, msg.Height-v)
@@ -347,8 +352,12 @@ func (m *model) updateColorList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if len(m.projects[m.selectedProject].Colors) > 0 {
 			color := m.projects[m.selectedProject].Colors[m.cursor]
-			clipboard.WriteAll(color)
-			m.message = fmt.Sprintf(" Copied %s to clipboard! ", color)
+			err := clipboard.WriteAll(color)
+			if err != nil {
+				m.message = fmt.Sprintf("Error copying to clipboard: %v", err)
+			} else {
+				m.message = fmt.Sprintf(" Copied %s", color)
+			}
 		}
 	case "n":
 		m.currentView = AddColorView
@@ -374,8 +383,12 @@ func (m *model) updateUrlList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if len(m.projects[m.selectedProject].Urls) > 0 {
 			url := m.projects[m.selectedProject].Urls[m.cursor].URL
-			clipboard.WriteAll(url)
-			m.message = fmt.Sprintf(" Copied %s to clipboard! ", url)
+			err := clipboard.WriteAll(url)
+			if err != nil {
+				m.message = fmt.Sprintf("Error copying to clipboard: %v", err)
+			} else {
+				m.message = fmt.Sprintf(" Copied %s to clipboard! ", url)
+			}
 		}
 	case "n":
 		m.currentView = AddUrlView
@@ -528,7 +541,6 @@ func (m *model) viewProjectList() string {
 
 	if m.message != "" {
 		b.WriteString("\n" + messageStyle.Render(m.message))
-		m.message = ""
 	}
 	return b.String()
 }
@@ -537,7 +549,7 @@ func (m *model) viewProjectMenu() string {
     project := m.projects[m.selectedProject]  
     var b strings.Builder  
   
-    b.WriteString(headerStyle.Render(fmt.Sprintf("✨ %s", project.Name)) + "\n")  
+    b.WriteString(headerStyle.Render("✨ " + project.Name) + "\n")  
   
     options := []string{"Colors", "URLs"}  
     for i, option := range options {  
@@ -558,7 +570,7 @@ func (m *model) viewColorList() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("%s", project.Name)) + "\n")
+	b.WriteString(headerStyle.Render(project.Name) + "\n")
 
 	if len(project.Colors) == 0 {
 		b.WriteString(subtleStyle.Render("No colors yet. Press 'n' to add one.") + "\n")
@@ -591,7 +603,6 @@ func (m *model) viewColorList() string {
 
 	if m.message != "" {
 		b.WriteString("\n" + messageStyle.Render(m.message))
-		m.message = ""
 	}
 
 	return b.String()
@@ -601,7 +612,7 @@ func (m *model) viewUrlList() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("%s", project.Name)) + "\n")
+	b.WriteString(headerStyle.Render(project.Name) + "\n")
 
 	if len(project.Urls) == 0 {
 		b.WriteString(subtleStyle.Render("No URLs yet. Press 'n' to add one.") + "\n")
@@ -620,7 +631,6 @@ func (m *model) viewUrlList() string {
 
 	if m.message != "" {
 		b.WriteString("\n" + messageStyle.Render(m.message))
-		m.message = ""
 	}
 
 	return b.String()
