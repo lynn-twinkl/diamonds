@@ -189,7 +189,7 @@ var (
 			Width(40)
 
 	// Doc: General styling for the whole app
-	docStyle = lipgloss.NewStyle().Padding(1, 1).Foreground(normalTextColor)
+	docStyle = lipgloss.NewStyle().Padding(2,1).Foreground(normalTextColor)
 )
 
 func newCustomDelegate() list.DefaultDelegate {  
@@ -227,7 +227,7 @@ func initialModel() model {
 	l.Title = "🪩 DIAMONDS "
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.Styles.Title = headerStyle
+	l.Styles.Title = headerStyle.Copy().MarginTop(0).PaddingTop(1)
 	l.Styles.HelpStyle = helpStyle
 	l.SetShowHelp(false)
 
@@ -533,25 +533,25 @@ func (m *model) viewProjectList() string {
 	return b.String()
 }
 
-func (m *model) viewProjectMenu() string {
-	project := m.projects[m.selectedProject]
-	var b strings.Builder
-
-	b.WriteString(headerStyle.Render(fmt.Sprintf("✨ %s", project.Name)) + "\n")
-
-	options := []string{"Colors", "URLs"}
-	for i, option := range options {
-		if m.cursor == i {
-			b.WriteString(selectedItemStyle.Render("> " + option) + "\n")
-		} else {
-			b.WriteString("  " + option + "\n")
-		}
-	}
-
-	help := horizontalHelp("↑/↓ navigate", "enter select", "esc back", "q quit")
-	b.WriteString("\n" + help)
-
-	return b.String()
+func (m *model) viewProjectMenu() string {  
+    project := m.projects[m.selectedProject]  
+    var b strings.Builder  
+  
+    b.WriteString(headerStyle.Render(fmt.Sprintf("✨ %s", project.Name)) + "\n")  
+  
+    options := []string{"Colors", "URLs"}  
+    for i, option := range options {  
+        if m.cursor == i {  
+            b.WriteString(selectedItemStyle.Render("> " + option) + "\n")  
+        } else {  
+            b.WriteString("  " + option + "\n")  // Ensure exactly 2 spaces  
+        }  
+    }  
+  
+    help := horizontalHelp("↑/↓ navigate", "enter select", "esc back", "q quit")  
+    b.WriteString("\n" + help)  
+  
+    return b.String()  
 }
 
 func (m *model) viewColorList() string {
