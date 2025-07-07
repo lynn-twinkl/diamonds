@@ -132,7 +132,7 @@ type model struct {
 // --- STYLING PARAMETERS ---
 var (
 	// Pipe: Adaptive purple for app name/header
-	appNameColor = lipgloss.AdaptiveColor{Light: "#FF00FF", Dark: "#ffffff"}
+	appNameColor = lipgloss.AdaptiveColor{Light: "#FF00FF", Dark: "#F6FFFE"}
 	// Comment: Gray text for secondary info
 	commentColor = lipgloss.Color("#757575")
 	// Flag: Adaptive color for selected items
@@ -145,7 +145,7 @@ var (
 	inlineCodeColor   = lipgloss.Color("#FF5F87")
 	inlineCodeBgColor = lipgloss.AdaptiveColor{Light: "#ADD8E6", Dark: "#3A3A3A"}
 	// Quote: Adaptive pink for interactive elements
-	quoteColor = lipgloss.AdaptiveColor{Light: "#1E90FF", Dark: "#FF78D2"}
+	quoteColor = lipgloss.AdaptiveColor{Light: "#1E90FF", Dark: "#FF59C8"}
 	// Normal: For regular text
 	normalTextColor = lipgloss.AdaptiveColor{Light: "#1F2026", Dark: "#E5E5E5"}
 
