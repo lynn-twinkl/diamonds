@@ -131,13 +131,12 @@ type model struct {
 
 // --- STYLING PARAMETERS ---
 var (
-	// Colors mapped from the style guide
 	// Pipe: Adaptive purple for app name/header
-	appNameColor = lipgloss.AdaptiveColor{Light: "#FF00FF", Dark: "#745CFF"}
+	appNameColor = lipgloss.AdaptiveColor{Light: "#FF00FF", Dark: "#ffffff"}
 	// Comment: Gray text for secondary info
 	commentColor = lipgloss.Color("#757575")
-	// Flag: Adaptive green/cyan for selected items
-	selectionColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#F780E2"}
+	// Flag: Adaptive color for selected items
+	selectionColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#95FEEE"}
 	// ErrorHeader: Used for status messages
 	messageColor   = lipgloss.Color("#F1F1F1")
 	messageBgColor = lipgloss.Color("#FF5F87")
@@ -537,7 +536,7 @@ func (m *model) viewProjectMenu() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.Name)) + "\n")
+	b.WriteString(headerStyle.Render(fmt.Sprintf("✨ %s", project.Name)) + "\n")
 
 	options := []string{"Colors", "URLs"}
 	for i, option := range options {
