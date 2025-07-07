@@ -136,7 +136,8 @@ var (
 	// Comment: Gray text for secondary info
 	commentColor = lipgloss.Color("#757575")
 	// Flag: Adaptive color for selected items
-	selectionColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#95FEEE"}
+	selectionColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#BAF3EB"}
+	itemDescColor = lipgloss.AdaptiveColor{Light: "#0000CD", Dark: "#E9F8F5"}
 	// ErrorHeader: Used for status messages
 	messageColor   = lipgloss.Color("#F1F1F1")
 	messageBgColor = lipgloss.Color("#FF5F87")
@@ -191,20 +192,20 @@ var (
 	docStyle = lipgloss.NewStyle().Padding(1, 1).Foreground(normalTextColor)
 )
 
-func newCustomDelegate() list.DefaultDelegate {
-	// Create a new default delegate
-	d := list.NewDefaultDelegate()
-
-	// Change colors (using your selection color)
-	c := selectionColor
-	d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(c).BorderLeftForeground(c)
-	d.Styles.SelectedDesc = d.Styles.SelectedTitle.Copy() // reuse the title style here
-
-	// Set color for normal (unselected) items
-	d.Styles.NormalTitle = d.Styles.NormalTitle.Foreground(normalTextColor)
-	d.Styles.NormalDesc = d.Styles.NormalDesc.Foreground(commentColor)
-
-	return d
+func newCustomDelegate() list.DefaultDelegate {  
+	// Create a new default delegate  
+	d := list.NewDefaultDelegate()  
+  
+	// Change colors (using your selection color)  
+	c := selectionColor  
+	d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(c).BorderLeftForeground(c)  
+	d.Styles.SelectedDesc = d.Styles.SelectedDesc.Foreground(itemDescColor).BorderLeftForeground(c) // Add BorderLeftForeground  
+  
+	// Set color for normal (unselected) items  
+	d.Styles.NormalTitle = d.Styles.NormalTitle.Foreground(normalTextColor)  
+	d.Styles.NormalDesc = d.Styles.NormalDesc.Foreground(commentColor)  
+  
+	return d  
 }
 
 // --- INITIALIZATION & UPDATE LOGIC ---
