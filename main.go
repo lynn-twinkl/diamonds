@@ -126,6 +126,9 @@ var (
 			BorderForeground(quoteColor).
 			Padding(1, 2).
 			Width(40)
+
+	// Doc: General styling for the whole app
+	docStyle = lipgloss.NewStyle().Padding(1, 1)
 )
 
 func newCustomDelegate() list.DefaultDelegate {
@@ -161,7 +164,7 @@ func initialModel() model {
 
 	delegate := newCustomDelegate()
 	l := list.New(items, delegate, 0, 0)
-	l.Title = "🪩 Diamonds"
+	l.Title = "🪩 DIAMONDS "
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.Styles.Title = headerStyle
@@ -188,7 +191,8 @@ func (m *model) Init() tea.Cmd {
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.WindowSizeMsg); ok {
-		m.projectList.SetSize(msg.Width, msg.Height)
+		h, v := docStyle.GetHorizontalPadding(), docStyle.GetVerticalPadding()
+		m.projectList.SetSize(msg.Width-h, msg.Height-v)
 	}
 
 	switch msg := msg.(type) {
@@ -424,23 +428,24 @@ func (m *model) updateAddUrl(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // --- VIEWS ---
 
 func (m *model) View() string {
+	var view string
 	switch m.currentView {
 	case ProjectListView:
-		return m.viewProjectList()
+		view = m.viewProjectList()
 	case ProjectMenuView:
-		return m.viewProjectMenu()
+		view = m.viewProjectMenu()
 	case ColorListView:
-		return m.viewColorList()
+		view = m.viewColorList()
 	case UrlListView:
-		return m.viewUrlList()
+		view = m.viewUrlList()
 	case AddProjectView:
-		return m.viewAddProject()
+		view = m.viewAddProject()
 	case AddColorView:
-		return m.viewAddColor()
+		view = m.viewAddColor()
 	case AddUrlView:
-		return m.viewAddUrl()
+		view = m.viewAddUrl()
 	}
-	return ""
+	return docStyle.Render(view)
 }
 
 func (m *model) viewProjectList() string {
