@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -10,6 +12,64 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+const dataFileName = "data.json"
+const configDirName = "diamonds"
+
+func getDataFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("could not get user config dir: %w", err)
+	}
+
+	appConfigDir := filepath.Join(configDir, configDirName)
+	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("could not create app config dir: %w", err)
+	}
+
+	return filepath.Join(appConfigDir, dataFileName), nil
+}
+
+func (m *model) saveProjects() {
+	path, err := getDataFilePath()
+	if err != nil {
+		m.message = fmt.Sprintf("Error getting data path: %v", err)
+		return
+	}
+
+	data, err := json.MarshalIndent(m.projects, "", "  ")
+	if err != nil {
+		m.message = fmt.Sprintf("Error saving data: %v", err)
+		return
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		m.message = fmt.Sprintf("Error writing data: %v", err)
+	}
+}
+
+func loadProjects() ([]Project, error) {
+	path, err := getDataFilePath()
+	if err != nil {
+		return nil, fmt.Errorf("could not get data file path: %w", err)
+	}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return []Project{}, nil // No file, start fresh
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not read data file: %w", err)
+	}
+
+	var projects []Project
+	if err := json.Unmarshal(data, &projects); err != nil {
+		return nil, fmt.Errorf("could not parse data file: %w", err)
+	}
+
+	return projects, nil
+}
 
 // ViewState determines which view is currently active.
 type ViewState int
@@ -47,14 +107,14 @@ func (p projectItem) Description() string {
 
 // --- MODEL ---
 type namedURL struct {
-	Name string
-	URL  string
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 type Project struct {
-	name   string
-	colors []string
-	urls   []namedURL
+	Name   string     `json:"name"`
+	Colors []string   `json:"colors"`
+	Urls   []namedURL `json:"urls"`
 }
 
 type model struct {
@@ -146,20 +206,15 @@ func newCustomDelegate() list.DefaultDelegate {
 // --- INITIALIZATION & UPDATE LOGIC ---
 
 func initialModel() model {
-	initialProjects := []Project{
-		{name: "Website Redesign", colors: []string{"#FF5733", "#33FF57", "#3357FF"}, urls: []namedURL{
-			{Name: "Figma Mockups", URL: "https://www.figma.com/file/123"},
-			{Name: "Design Specs", URL: "https://www.notion.so/design-specs"},
-		}},
-		{name: "Mobile App UI", colors: []string{"#C70039", "#900C3F"}, urls: []namedURL{
-			{Name: "Figma Mockups", URL: "https://www.figma.com/file/456"},
-		}},
-		{name: "Branding Guide", colors: []string{"#F9E79F", "#5DADE2", "#1ABC9C", "#F1C40F"}, urls: []namedURL{}},
+	loadedProjects, err := loadProjects()
+	if err != nil {
+		fmt.Printf("Error loading projects: %v\n", err)
+		os.Exit(1)
 	}
 
-	items := make([]list.Item, len(initialProjects))
-	for i, project := range initialProjects {
-		items[i] = projectItem{name: project.name, colorCount: len(project.colors), urlCount: len(project.urls)}
+	items := make([]list.Item, len(loadedProjects))
+	for i, project := range loadedProjects {
+		items[i] = projectItem{name: project.Name, colorCount: len(project.Colors), urlCount: len(project.Urls)}
 	}
 
 	delegate := newCustomDelegate()
@@ -172,7 +227,7 @@ func initialModel() model {
 
 	return model{
 		projectList: l,
-		projects:    initialProjects,
+		projects:    loadedProjects,
 		currentView: ProjectListView,
 	}
 }
@@ -180,7 +235,7 @@ func initialModel() model {
 func (m *model) updateProjectListItems() {
 	items := make([]list.Item, len(m.projects))
 	for i, project := range m.projects {
-		items[i] = projectItem{name: project.name, colorCount: len(project.colors), urlCount: len(project.urls)}
+		items[i] = projectItem{name: project.Name, colorCount: len(project.Colors), urlCount: len(project.Urls)}
 	}
 	m.projectList.SetItems(items)
 }
@@ -225,7 +280,7 @@ func (m *model) updateProjectList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		selectedItem, ok := m.projectList.SelectedItem().(projectItem)
 		if ok {
 			for i, p := range m.projects {
-				if p.name == selectedItem.name {
+				if p.Name == selectedItem.name {
 					m.selectedProject = i
 					m.currentView = ProjectMenuView
 					m.cursor = 0
@@ -280,12 +335,12 @@ func (m *model) updateColorList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor--
 		}
 	case "down", "j":
-		if m.cursor < len(m.projects[m.selectedProject].colors)-1 {
+		if m.cursor < len(m.projects[m.selectedProject].Colors)-1 {
 			m.cursor++
 		}
 	case "enter":
-		if len(m.projects[m.selectedProject].colors) > 0 {
-			color := m.projects[m.selectedProject].colors[m.cursor]
+		if len(m.projects[m.selectedProject].Colors) > 0 {
+			color := m.projects[m.selectedProject].Colors[m.cursor]
 			clipboard.WriteAll(color)
 			m.message = fmt.Sprintf(" Copied %s to clipboard! ", color)
 		}
@@ -307,12 +362,12 @@ func (m *model) updateUrlList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor--
 		}
 	case "down", "j":
-		if m.cursor < len(m.projects[m.selectedProject].urls)-1 {
+		if m.cursor < len(m.projects[m.selectedProject].Urls)-1 {
 			m.cursor++
 		}
 	case "enter":
-		if len(m.projects[m.selectedProject].urls) > 0 {
-			url := m.projects[m.selectedProject].urls[m.cursor].URL
+		if len(m.projects[m.selectedProject].Urls) > 0 {
+			url := m.projects[m.selectedProject].Urls[m.cursor].URL
 			clipboard.WriteAll(url)
 			m.message = fmt.Sprintf(" Copied %s to clipboard! ", url)
 		}
@@ -334,8 +389,9 @@ func (m *model) updateAddProject(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.inputBuffer = ""
 	case "enter":
 		if m.inputBuffer != "" {
-			m.projects = append(m.projects, Project{name: m.inputBuffer, colors: []string{}, urls: []namedURL{}})
+			m.projects = append(m.projects, Project{Name: m.inputBuffer, Colors: []string{}, Urls: []namedURL{}})
 			m.updateProjectListItems()
+			m.saveProjects()
 			m.currentView = ProjectListView
 			m.inputBuffer = ""
 		}
@@ -343,6 +399,8 @@ func (m *model) updateAddProject(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.inputBuffer) > 0 {
 			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
 		}
+	case " ":
+		m.inputBuffer += " "
 	default:
 		if msg.Type == tea.KeyRunes {
 			m.inputBuffer += string(msg.Runes)
@@ -360,10 +418,11 @@ func (m *model) updateAddColor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.inputBuffer = ""
 	case "enter":
 		if m.inputBuffer != "" && strings.HasPrefix(m.inputBuffer, "#") && (len(m.inputBuffer) == 7 || len(m.inputBuffer) == 4) {
-			m.projects[m.selectedProject].colors = append(m.projects[m.selectedProject].colors, m.inputBuffer)
+			m.projects[m.selectedProject].Colors = append(m.projects[m.selectedProject].Colors, m.inputBuffer)
 			m.updateProjectListItems()
+			m.saveProjects()
 			m.currentView = ColorListView
-			m.cursor = len(m.projects[m.selectedProject].colors) - 1
+			m.cursor = len(m.projects[m.selectedProject].Colors) - 1
 			m.inputBuffer = ""
 		}
 	case "backspace":
@@ -392,10 +451,11 @@ func (m *model) updateAddUrl(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.focusedField = 1
 		} else {
 			if m.urlNameBuffer != "" && m.inputBuffer != "" {
-				m.projects[m.selectedProject].urls = append(m.projects[m.selectedProject].urls, namedURL{Name: m.urlNameBuffer, URL: m.inputBuffer})
+				m.projects[m.selectedProject].Urls = append(m.projects[m.selectedProject].Urls, namedURL{Name: m.urlNameBuffer, URL: m.inputBuffer})
 				m.updateProjectListItems()
+				m.saveProjects()
 				m.currentView = UrlListView
-				m.cursor = len(m.projects[m.selectedProject].urls) - 1
+				m.cursor = len(m.projects[m.selectedProject].Urls) - 1
 				m.urlNameBuffer = ""
 				m.inputBuffer = ""
 				m.focusedField = 0
@@ -413,6 +473,12 @@ func (m *model) updateAddUrl(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "tab":
 		m.focusedField = (m.focusedField + 1) % 2
+	case " ":
+		if m.focusedField == 0 {
+			m.urlNameBuffer += " "
+		} else {
+			m.inputBuffer += " "
+		}
 	default:
 		if msg.Type == tea.KeyRunes {
 			if m.focusedField == 0 {
@@ -463,7 +529,7 @@ func (m *model) viewProjectMenu() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.name)) + "\n")
+	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.Name)) + "\n")
 
 	options := []string{"Colors", "URLs"}
 	for i, option := range options {
@@ -474,8 +540,8 @@ func (m *model) viewProjectMenu() string {
 		}
 	}
 
-	help := "\n↑/↓: Navigate\n" + "Enter: Select\n" + "Esc: Back\n" + "q: Quit"
-	b.WriteString(helpStyle.Render(help))
+	help := horizontalHelp("↑/↓ navigate", "ENTER select", "ESC back", "q quit")
+	b.WriteString("\n" + help)
 
 	return b.String()
 }
@@ -484,12 +550,12 @@ func (m *model) viewColorList() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.name)) + "\n")
+	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.Name)) + "\n")
 
-	if len(project.colors) == 0 {
+	if len(project.Colors) == 0 {
 		b.WriteString(subtleStyle.Render("No colors yet. Press 'n' to add one.") + "\n")
 	} else {
-		for i, color := range project.colors {
+		for i, color := range project.Colors {
 			// The unused 'cursor' and 'style' variables have been removed.
 
 			colorBlock := lipgloss.NewStyle().Background(lipgloss.Color(color)).Render("  ")
@@ -512,8 +578,8 @@ func (m *model) viewColorList() string {
 		}
 	}
 
-	help := "\n↑/↓: Navigate\n" + "Enter: Copy color\n" + "n: New color\n" + "Esc: Back\n" + "q: Quit"
-	b.WriteString(helpStyle.Render(help))
+	help := horizontalHelp("↑/↓: Navigate", "Enter: Copy color", "n: New color", "Esc: Back", "q: Quit")
+	b.WriteString("\n" + help)
 
 	if m.message != "" {
 		b.WriteString("\n" + messageStyle.Render(m.message))
@@ -527,12 +593,12 @@ func (m *model) viewUrlList() string {
 	project := m.projects[m.selectedProject]
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.name)) + "\n")
+	b.WriteString(headerStyle.Render(fmt.Sprintf("Project: %s", project.Name)) + "\n")
 
-	if len(project.urls) == 0 {
+	if len(project.Urls) == 0 {
 		b.WriteString(subtleStyle.Render("No URLs yet. Press 'n' to add one.") + "\n")
 	} else {
-		for i, namedUrl := range project.urls {
+		for i, namedUrl := range project.Urls {
 			if m.cursor == i {
 				b.WriteString(selectedItemStyle.Render("> " + namedUrl.Name) + "\n")
 			} else {
@@ -541,8 +607,8 @@ func (m *model) viewUrlList() string {
 		}
 	}
 
-	help := "\n↑/↓: Navigate\n" + "Enter: Copy URL\n" + "n: New URL\n" + "Esc: Back\n" + "q: Quit"
-	b.WriteString(helpStyle.Render(help))
+	help := horizontalHelp("↑/↓: Navigate", "Enter: Copy URL", "n: New URL", "Esc: Back", "q: Quit")
+	b.WriteString("\n" + help)
 
 	if m.message != "" {
 		b.WriteString("\n" + messageStyle.Render(m.message))
@@ -557,7 +623,7 @@ func (m *model) viewAddProject() string {
 	b.WriteString(headerStyle.Render("Add New Project") + "\n")
 	prompt := fmt.Sprintf("Project name: %s", m.inputBuffer)
 	b.WriteString(inputStyle.Render(prompt) + "\n\n")
-	b.WriteString(helpStyle.Render("Enter: Save\nEsc: Cancel"))
+	b.WriteString(horizontalHelp("Enter: Save", "Esc: Cancel"))
 	return b.String()
 }
 
@@ -566,7 +632,8 @@ func (m *model) viewAddColor() string {
 	b.WriteString(headerStyle.Render("Add New Color") + "\n")
 	prompt := fmt.Sprintf("HEX color: %s", m.inputBuffer)
 	b.WriteString(inputStyle.Render(prompt) + "\n\n")
-	b.WriteString(helpStyle.Render("Enter HEX (e.g., #FF5F87)\nEnter: Save\nEsc: Cancel"))
+	b.WriteString(helpStyle.Render("Enter HEX (e.g., #FF5F87)") + "\n")
+	b.WriteString(horizontalHelp("Enter: Save", "Esc: Cancel"))
 	return b.String()
 }
 
@@ -585,8 +652,12 @@ func (m *model) viewAddUrl() string {
 		b.WriteString(inputStyle.Render(urlPrompt) + "\n\n")
 	}
 
-	b.WriteString(helpStyle.Render("Enter: Next/Save\nTab: Switch Fields\nEsc: Cancel"))
+	b.WriteString(horizontalHelp("Enter: Next/Save", "Tab: Switch Fields", "Esc: Cancel"))
 	return b.String()
+}
+
+func horizontalHelp(keys ...string) string {
+	return helpStyle.Render(strings.Join(keys, " • "))
 }
 
 func main() {
